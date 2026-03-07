@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Wallet, Menu, X } from "lucide-react";
+import { Wallet, Menu, X, LogOut } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import logo from "@/assets/volswap-logo.png";
@@ -10,7 +10,14 @@ const navLinks = [
   { to: "/analytics", label: "Analytics" },
 ];
 
-const Navbar = () => {
+interface NavbarProps {
+  isConnected: boolean;
+  shortenedAddress: string | null;
+  onConnect: () => void;
+  onDisconnect: () => void;
+}
+
+const Navbar = ({ isConnected, shortenedAddress, onConnect, onDisconnect }: NavbarProps) => {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -39,10 +46,28 @@ const Navbar = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <button className="hidden md:flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-primary to-accent text-primary-foreground text-sm font-semibold transition-all hover:opacity-90 glow-blue">
-            <Wallet className="w-4 h-4" />
-            Connect Wallet
-          </button>
+          {isConnected ? (
+            <div className="hidden md:flex items-center gap-2">
+              <span className="px-3 py-2 rounded-lg glass text-sm font-semibold text-foreground">
+                {shortenedAddress}
+              </span>
+              <button
+                onClick={onDisconnect}
+                className="p-2 rounded-lg hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                title="Disconnect"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onConnect}
+              className="hidden md:flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-primary to-accent text-primary-foreground text-sm font-semibold transition-all hover:opacity-90 glow-blue"
+            >
+              <Wallet className="w-4 h-4" />
+              Connect Wallet
+            </button>
+          )}
           <button
             className="md:hidden text-foreground"
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -75,10 +100,22 @@ const Navbar = () => {
                   {link.label}
                 </Link>
               ))}
-              <button className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-gradient-to-r from-primary to-accent text-primary-foreground text-sm font-semibold mt-2">
-                <Wallet className="w-4 h-4" />
-                Connect Wallet
-              </button>
+              {isConnected ? (
+                <div className="flex items-center justify-between px-4 py-3 rounded-lg glass mt-2">
+                  <span className="text-sm font-semibold text-foreground">{shortenedAddress}</span>
+                  <button onClick={onDisconnect} className="text-muted-foreground hover:text-foreground">
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { onConnect(); setMobileOpen(false); }}
+                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-gradient-to-r from-primary to-accent text-primary-foreground text-sm font-semibold mt-2"
+                >
+                  <Wallet className="w-4 h-4" />
+                  Connect Wallet
+                </button>
+              )}
             </div>
           </motion.div>
         )}
