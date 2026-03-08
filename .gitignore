@@ -30,3 +30,8 @@ dist-ssr
 
 .env
 contracts/.env
+
+contracts/broadcast/
+contracts/cache/
+contracts/lib/
+contracts/out/
