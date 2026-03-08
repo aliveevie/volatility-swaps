@@ -1,73 +1,162 @@
-# Welcome to your Lovable project
+# VolSwap
 
-## Project info
+**Dynamic fee swaps powered by volatility.**
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+VolSwap is a [Uniswap v4](https://github.com/Uniswap/v4-core) hook that sets **volatility-based swap fees** in real time. Fees are updated off the critical path by [Reactive Network](https://reactive.network) from [Chainlink](https://chain.link) price events—no oracle calls during swaps, no keepers, and full transparency for traders and LPs.
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## Links
 
-**Use Lovable**
+| | |
+|---|---|
+| **Live app** | [**https://volswap.ibxlab.com/**](https://volswap.ibxlab.com/) |
+| **Demo video** | [**Watch on YouTube**](https://youtu.be/nqqz2GRha0I) |
+| **Repository** | [**github.com/aliveevie/volatility-swaps**](https://github.com/aliveevie/volatility-swaps) |
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+---
 
-Changes made via Lovable will be committed automatically to this repo.
+## Overview
 
-**Use your preferred IDE**
+Static LP fees don’t match market reality: in calm markets they overcharge; in volatile markets they undercharge for risk. VolSwap replaces a single fixed fee with a **cached dynamic fee** that adapts to current volatility:
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- **beforeSwap** — The hook returns a pre-cached fee from storage (no Chainlink call in the swap path).
+- **Fee updates** — Reactive Smart Contracts (RSCs) subscribe to Chainlink `AnswerUpdated` events, compute a volatility-based tier, and push it to the hook via a callback contract.
+- **Tiers** — LOW / MEDIUM / HIGH map to configurable basis points (e.g. 0.05%, 0.30%, 1.00%).
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+Traders get predictable execution cost; LPs get better compensation when volatility is high; and the UI shows the live fee tier and last update timestamp from chain.
 
-Follow these steps:
+---
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## Architecture
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+End-to-end flow: **Chainlink → Reactive Network → VolSwap Hook → Uniswap v4 Pool Manager**.
 
-# Step 3: Install the necessary dependencies.
-npm i
+```mermaid
+flowchart TB
+    subgraph Frontend[" "]
+        UI[React App]
+    end
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+    subgraph Uniswap["Uniswap v4"]
+        PM[Pool Manager]
+    end
+
+    subgraph VolSwap["VolSwap"]
+        Hook[VolSwapHook]
+        Cache[("cachedFee")]
+        Hook --> Cache
+    end
+
+    subgraph Reactive["Reactive Network"]
+        RSC[Reactive Smart Contract]
+        Callback[VolSwapCallback]
+        RSC --> Callback
+    end
+
+    subgraph Oracles["Chainlink"]
+        Feed[ETH/USD Price Feed]
+    end
+
+    UI <-->|swap / add liquidity| PM
+    PM -->|beforeSwap()| Hook
+    Hook -->|return fee| PM
+    Feed -->|AnswerUpdated| RSC
+    Callback -->|updateFee()| Hook
+    Hook --> Cache
+```
+
+**Layers:**
+
+| Layer | Role |
+|-------|------|
+| **Uniswap v4** | Pool Manager; calls hook `beforeSwap()` for dynamic fee. |
+| **VolSwapHook** | Returns `cachedFee` in `beforeSwap()`; accepts `updateFee()` only from Reactive callback. |
+| **VolSwapCallback** | Receives Reactive callbacks and calls `hook.updateFee()`. |
+| **Chainlink** | Price feed events as the volatility signal source. |
+| **Reactive Network** | RSC subscribes to Chainlink, computes fee tier, triggers cross-chain callback to the hook. |
+| **React frontend** | Reads `cachedFee` and `lastFeeUpdate` from the hook; shows live fee and “last update” (no mocks). |
+
+For more detail, see [Architecture.md](./Architecture.md).
+
+---
+
+## Tech stack
+
+| Area | Stack |
+|------|--------|
+| **Contracts** | Solidity, Foundry, Uniswap v4 (core + periphery) |
+| **Frontend** | React, TypeScript, Vite, Tailwind CSS, shadcn/ui |
+| **Web3** | Wagmi, viem, Web3Modal (WalletConnect) |
+| **Data** | Chainlink Data Feeds, Reactive Network |
+
+---
+
+## Quick start
+
+**Prerequisites:** Node.js 18+, npm or bun.
+
+```bash
+# Clone the repository
+git clone https://github.com/aliveevie/volatility-swaps.git
+cd volatility-swaps
+
+# Install dependencies
+npm install
+
+# Configure environment (see .env.example)
+cp .env.example .env
+# Set VITE_VOLSWAP_HOOK_ADDRESS and VITE_VOLSWAP_CALLBACK_ADDRESS for Sepolia
+
+# Run the development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Open [http://localhost:5173](http://localhost:5173), connect a wallet, and switch to **Sepolia** to see the live fee from the deployed hook.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+**Contracts (Foundry):**
 
-**Use GitHub Codespaces**
+```bash
+cd contracts
+forge install
+forge test
+# Deploy (Sepolia): FOUNDRY_PROFILE=deploy forge script script/Deploy.s.sol --rpc-url $SEPOLIA_RPC --broadcast
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+See [contracts/README.md](./contracts/README.md) for deploy steps and env vars.
 
-## What technologies are used for this project?
+---
 
-This project is built with:
+## Project structure
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+```
+volatility-swaps/
+├── src/                    # React frontend
+│   ├── components/         # SwapWidget, pool, analytics UI
+│   ├── hooks/              # useVolSwapHook (cachedFee, lastFeeUpdate)
+│   └── lib/                # wagmi, contracts config
+├── contracts/              # Solidity (Foundry)
+│   ├── src/
+│   │   ├── VolSwapHook.sol
+│   │   └── VolSwapCallback.sol
+│   └── script/Deploy.s.sol
+├── Architecture.md         # Detailed architecture and flows
+└── SLIDES.md               # Presentation outline
+```
 
-## How can I deploy this project?
+---
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## Deployed (Sepolia)
 
-## Can I connect a custom domain to my Lovable project?
+| Contract | Address |
+|----------|---------|
+| VolSwapHook | `0x749f402499B619016954a89fa352c89987D967db` |
+| VolSwapCallback | `0x4DcD780bB70C5A87406133De1FFd51a0c0CCFB24` |
 
-Yes, you can!
+---
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## License & credits
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Built for the **Uniswap Hook Incubator (UHI) Hookathon — Specialized Markets** track.
+
+**Partners:** Uniswap v4 · Chainlink · Reactive Network.
