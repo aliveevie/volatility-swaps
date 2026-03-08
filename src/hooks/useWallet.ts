@@ -29,11 +29,9 @@ export function useWallet() {
     updateState();
 
     const unsub = modal.subscribeEvents(() => {
-      // Small delay to let web3modal internal state settle
       setTimeout(updateState, 100);
     });
 
-    // Also poll briefly since events can be unreliable
     const interval = setInterval(updateState, 2000);
 
     return () => {
@@ -46,9 +44,13 @@ export function useWallet() {
     modal.open();
   }, []);
 
-  const disconnect = useCallback(() => {
-    modal.close();
-    // Reset state
+  const disconnect = useCallback(async () => {
+    try {
+      await modal.disconnect();
+    } catch {
+      // Fallback: close and reset
+      modal.close();
+    }
     setWallet({ address: null, isConnected: false, chainId: null });
   }, []);
 

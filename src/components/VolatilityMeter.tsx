@@ -3,9 +3,10 @@ import { motion } from "framer-motion";
 interface VolatilityMeterProps {
   score: number; // 0-100
   percentage: string;
+  lastUpdate?: string;
 }
 
-const VolatilityMeter = ({ score, percentage }: VolatilityMeterProps) => {
+const VolatilityMeter = ({ score, percentage, lastUpdate }: VolatilityMeterProps) => {
   const getColor = () => {
     if (score < 33) return "from-success to-success";
     if (score < 66) return "from-warning to-warning";
@@ -34,7 +35,7 @@ const VolatilityMeter = ({ score, percentage }: VolatilityMeterProps) => {
         <span className="text-[10px] text-destructive font-medium">HIGH</span>
       </div>
       <p className="text-[11px] text-muted-foreground mt-3 text-center">
-        Powered by Chainlink + Reactive Network
+        {lastUpdate ? `Last update: ${lastUpdate} · ` : ""}Powered by Chainlink + Reactive Network
       </p>
     </div>
   );

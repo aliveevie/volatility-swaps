@@ -5,7 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
-import ConnectWalletOverlay from "./components/ConnectWalletOverlay";
 import Index from "./pages/Index";
 import Pool from "./pages/Pool";
 import Analytics from "./pages/Analytics";
@@ -26,7 +25,6 @@ const AppContent = () => {
         onConnect={connect}
         onDisconnect={disconnect}
       />
-      {!isConnected && <ConnectWalletOverlay onConnect={connect} />}
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/pool" element={<Pool />} />
