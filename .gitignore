@@ -22,3 +22,16 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+.superset/
+.claude/
+
+.ENV
+
+.env
+contracts/.env
+
+contracts/broadcast/
+contracts/cache/
+contracts/lib/
+contracts/out/

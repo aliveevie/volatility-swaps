@@ -2,22 +2,30 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Plus } from "lucide-react";
 import AddLiquidityModal from "@/components/AddLiquidityModal";
-
-const stats = [
-  { label: "TVL", value: "$12.4M" },
-  { label: "24h Volume", value: "$3.2M" },
-  { label: "Current APR", value: "18.7%" },
-  { label: "Active Fee Tier", value: "0.05%" },
-];
-
-const positions = [
-  { pair: "ETH / USDC", liquidity: "$24,500", fees: "$1,230", il: "-0.8%" },
-  { pair: "WBTC / ETH", liquidity: "$18,200", fees: "$890", il: "-1.2%" },
-  { pair: "UNI / ETH", liquidity: "$8,900", fees: "$420", il: "-0.3%" },
-];
+import { useVolSwapHook, feeBpsToTier, formatLastFeeUpdate } from "@/hooks/useVolSwapHook";
+import { useChainlinkPrice } from "@/hooks/useChainlinkPrice";
+import { useWallet } from "@/hooks/useWallet";
+import { SEPOLIA_CHAIN_ID_NUMBER, VOLSWAP_HOOK_ADDRESS, LIQUIDITY_ROUTER_ADDRESS } from "@/lib/contracts";
 
 const Pool = () => {
   const [modalOpen, setModalOpen] = useState(false);
+  const { cachedFee, lastFeeUpdate, isLiveData, stalenessThreshold } = useVolSwapHook();
+  const { price: ethPrice } = useChainlinkPrice();
+  const { isConnected, chainId } = useWallet();
+  const tier = isLiveData ? feeBpsToTier(cachedFee) : null;
+  const activeFeeTier = tier ? `${tier.label} (${tier.value})` : "--";
+  const lastUpdateStr = isLiveData ? formatLastFeeUpdate(lastFeeUpdate) : "--";
+  const isSepolia = chainId === SEPOLIA_CHAIN_ID_NUMBER;
+
+  const stats = [
+    { label: "Active Fee Tier", value: activeFeeTier },
+    { label: "Fee (bps)", value: isLiveData ? `${cachedFee}` : "--" },
+    { label: "Last Fee Update", value: lastUpdateStr },
+    {
+      label: "ETH/USD",
+      value: ethPrice > 0 ? `$${ethPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "--",
+    },
+  ];
 
   return (
     <div className="min-h-screen animated-bg pt-24 pb-12 px-4">
@@ -46,6 +54,34 @@ const Pool = () => {
           ))}
         </div>
 
+        {/* Hook info */}
+        {isLiveData && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="glass rounded-xl p-4 mb-8"
+          >
+            <h3 className="text-sm font-bold text-foreground mb-3">Hook Contract</h3>
+            <div className="grid md:grid-cols-2 gap-3 text-xs text-muted-foreground">
+              <div>
+                <span className="text-foreground font-medium">Address: </span>
+                <a
+                  href={`https://sepolia.etherscan.io/address/${VOLSWAP_HOOK_ADDRESS}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  {VOLSWAP_HOOK_ADDRESS.slice(0, 10)}...{VOLSWAP_HOOK_ADDRESS.slice(-8)}
+                </a>
+              </div>
+              <div>
+                <span className="text-foreground font-medium">Staleness threshold: </span>
+                {stalenessThreshold > 0 ? `${stalenessThreshold}s` : "--"}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* Positions */}
         <div className="glass-strong rounded-2xl overflow-hidden">
           <div className="flex items-center justify-between p-5 border-b border-border/50">
@@ -62,21 +98,30 @@ const Pool = () => {
               <thead>
                 <tr className="border-b border-border/30">
                   {["Pair", "Liquidity", "Fees Earned", "Est. IL"].map((h) => (
-                    <th key={h} className="text-left text-xs text-muted-foreground font-medium px-5 py-3">
+                    <th
+                      key={h}
+                      className="text-left text-xs text-muted-foreground font-medium px-5 py-3"
+                    >
                       {h}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {positions.map((p) => (
-                  <tr key={p.pair} className="border-b border-border/20 hover:bg-muted/20 transition-colors">
-                    <td className="px-5 py-4 text-sm font-semibold text-foreground">{p.pair}</td>
-                    <td className="px-5 py-4 text-sm text-foreground">{p.liquidity}</td>
-                    <td className="px-5 py-4 text-sm text-success font-medium">{p.fees}</td>
-                    <td className="px-5 py-4 text-sm text-destructive font-medium">{p.il}</td>
-                  </tr>
-                ))}
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="px-5 py-8 text-center text-sm text-muted-foreground"
+                  >
+                    {!isConnected
+                      ? "Connect wallet to view positions."
+                      : !isSepolia
+                      ? "Switch to Sepolia to view positions."
+                      : !LIQUIDITY_ROUTER_ADDRESS
+                      ? "Deploy the liquidity router to manage positions."
+                      : "No positions found. Add liquidity to get started."}
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>

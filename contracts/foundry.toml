@@ -1,0 +1,23 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib", "submodules/v4-core", "submodules/v4-periphery"]
+remappings = [
+    "v4-core/=submodules/v4-core/src/",
+    "@uniswap/v4-core/=submodules/v4-core/src/",
+    "v4-periphery/=submodules/v4-periphery/src/",
+    "@uniswap/v4-periphery/=submodules/v4-periphery/src/"
+]
+solc_version = "0.8.24"
+evm_version = "cancun"
+via_ir = true
+# Default: no CREATE2 factory so forge test works (tests use address(this) as deployer)
+always_use_create_2_factory = false
+
+[profile.deploy]
+# Use for: FOUNDRY_PROFILE=deploy forge script script/Deploy.s.sol --rpc-url $SEPOLIA_RPC_URL --broadcast
+always_use_create_2_factory = true
+create2_deployer = "0x4e59b44847b379578588920cA78FbF26c0B4956C"
+
+[profile.default.fmt]
+line_length = 120
